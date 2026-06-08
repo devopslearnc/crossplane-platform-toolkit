@@ -1,0 +1,126 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: rds-instance.devops.murali.io
+  labels:
+    crossplane.io/xrd: xrdsinstances.devops.murali.io
+    provider: aws
+spec:
+  compositeTypeRef:
+    apiVersion: devops.murali.io/v1alpha1
+    kind: XRDSInstance
+  mode: Pipeline
+  pipeline:
+    - step: render-rds-instance
+      functionRef:
+        name: function-go-templating
+      input:
+        apiVersion: gotemplating.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |
+            {{- $xr      := .observed.composite.resource }}
+            {{- $params := $xr.spec.parameters }}
+            {{- $name   := $xr.metadata.name }}
+            {{- $env    := $params.environment }}
+            {{- $engine := $params.engine }}
+            {{- $region := $params.region }}
+
+            {{- $engineId  := "" }}
+            {{- $family    := "" }}
+            {{- $port      := 0  }}
+            {{- $defVer    := "" }}
+
+            {{- if eq $engine "postgresql" }}
+              {{- $engineId = "postgres" }}
+              {{- $family   = "postgres15" }}
+              {{- $port     = 5432 }}
+              {{- $defVer   = "15.4" }}
+            {{- else }}
+              {{- $engineId = "mysql" }}
+              {{- $family   = "mysql8.0" }}
+              {{- $port     = 3306 }}
+              {{- $defVer   = "8.0.35" }}
+            {{- end }}
+
+            {{- $version := $params.engineVersion }}
+            {{- if eq $version "" }}{{ $version = $defVer }}{{ end }}
+
+            {{- $multiAZ := false }}
+            {{- if eq $params.deploymentOption "multi-az" }}
+              {{- $multiAZ = true }}
+            {{- end }}
+
+            {{- $instanceId := printf "%s-%s-db" $name $env }}
+
+            ---
+            apiVersion: rds.aws.upbound.io/v1beta1
+            kind: SubnetGroup
+            metadata:
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: db-subnet-group
+              name: {{ $instanceId }}-sng
+            spec:
+              forProvider:
+                region: {{ $region }}
+                description: "Subnet group for {{ $instanceId }}"
+                subnetIds:
+                  {{- range $params.subnetIds }}
+                  - {{ . }}
+                  {{- end }}
+              providerConfigRef:
+                name: aws-provider-config
+
+            ---
+            apiVersion: rds.aws.upbound.io/v1beta1
+            kind: ParameterGroup
+            metadata:
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: db-parameter-group
+              name: {{ $instanceId }}-params
+            spec:
+              forProvider:
+                region: {{ $region }}
+                family: {{ $family }}
+                description: "Parameter group for {{ $instanceId }}"
+                # ... [Keep your parameter logic here]
+              providerConfigRef:
+                name: aws-provider-config
+
+            ---
+            apiVersion: rds.aws.upbound.io/v1beta1
+            kind: Instance
+            metadata:
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: rds-instance
+              name: {{ $instanceId }}
+            spec:
+              forProvider:
+                region: {{ $region }}
+                identifier: {{ $instanceId }}
+                engine: {{ $engineId }}
+                engineVersion: {{ $version }}
+                instanceClass: {{ $params.instanceClass }}
+                storageType: {{ $params.storageType }}
+                allocatedStorage: {{ $params.allocatedStorage }}
+                storageEncrypted: {{ $params.storageEncrypted }}
+                multiAz: {{ $multiAZ }}
+                dbName: {{ $params.dbName }}
+                username: {{ $params.masterUsername }}
+                # Link to the dynamically created Subnet Group
+                dbSubnetGroupNameSelector:
+                  matchControllerRef: true
+                vpcSecurityGroupIds:
+                  {{- range $params.vpcSecurityGroupIds }}
+                  - {{ . }}
+                  {{- end }}
+                parameterGroupNameSelector:
+                  matchControllerRef: true
+                # ... [Keep remaining specs]
+              providerConfigRef:
+                name: aws-provider-config
+
+    - step: auto-ready
+      functionRef:
+        name: function-auto-ready

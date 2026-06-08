@@ -1,0 +1,28 @@
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: SecurityGroupRule
+metadata:
+  annotations:
+    crossplane.io/composition-resource-name: bastion-outbound
+  labels:
+    crossplane.io/claim-name: ei-pfe-dev-sg
+    crossplane.io/claim-namespace: crossplane-infra
+    crossplane.io/composite: ei-pfe-dev-sg-g76nm
+  name: ei-pfe-dev-sg-g76nm-bastion-outbound
+spec:
+  deletionPolicy: Delete
+  forProvider:
+    cidrBlocks:
+      - 0.0.0.0/0
+    fromPort: 0
+    protocol: "-1"
+    region: us-east-1
+    securityGroupIdRef:
+      name: ei-pfe-dev-sg-g76nm-bastion-sg
+    securityGroupIdSelector:
+      matchControllerRef: true
+    toPort: 0
+    type: egress
+  managementPolicies:
+    - '*'
+  providerConfigRef:
+    name: default

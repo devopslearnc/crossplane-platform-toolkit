@@ -1,0 +1,96 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xnetworks.devops.murali.io
+spec:
+  group: devops.murali.io
+  names:
+    kind: XNetwork
+    plural: xnetworks
+  claimNames:
+    kind: Network
+    plural: networks
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+
+                region:
+                  type: string
+                  description: AWS region to deploy network resources
+
+                cidrBlock:
+                  type: string
+                  description: CIDR block for the VPC
+                subnets:
+                  type: array
+                  description: List of subnets to create (public and private)
+                  minItems: 2
+                  maxItems: 6
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        description: Unique name for the subnet (e.g. public-1, private-1)
+                      cidr:
+                        type: string
+                        description: CIDR block for the subnet (e.g. 10.0.1.0/24)
+                      az:
+                        type: string
+                        description: Availability Zone (e.g. us-east-1a)
+                      type:
+                        type: string
+                        enum:
+                          - public
+                          - private
+                        description: Subnet type - public or private
+                    required:
+                      - name
+                      - cidr
+                      - az
+                      - type
+
+                enableNatGateway:
+                  type: boolean
+                  description: Create NAT Gateway for private subnet internet access
+
+                environment:
+                  type: string
+                  description: Environment tag (dev, staging, prod)
+
+                owner:
+                  type: string
+                  description: Owner tag for resource identification
+
+              required:
+                - region
+                - cidrBlock
+                - subnets
+                - enableNatGateway
+                - environment
+                - owner
+
+            status:
+              type: object
+              properties:
+                vpcId:
+                  type: string
+                  description: Created VPC ID
+                publicSubnetIds:
+                  type: array
+                  description: List of public subnet IDs
+                  items:
+                    type: string
+                privateSubnetIds:
+                  type: array
+                  description: List of private subnet IDs
+                  items:
+                    type: string

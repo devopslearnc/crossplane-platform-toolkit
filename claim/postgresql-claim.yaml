@@ -1,0 +1,35 @@
+apiVersion: devops.murali.io/v1alpha1
+kind: RDSInstance
+metadata:
+  name: ei-pf-aurora-postgresql
+  namespace: crossplane-infra
+spec:
+  parameters:
+    engine: postgresql
+    engineVersion: "15.4"
+    instanceClass: db.t3.medium
+
+    masterUsername: pgadmin
+    dbName: appdb
+    environment: dev
+
+
+    subnetIds:
+      - subnet-0b02d89fd67423a1a
+      - subnet-02abc4ea327b48005
+
+    vpcSecurityGroupIds:
+      - sg-0716b5150b4806745
+
+    # Settings
+    storageEncrypted: true
+    backupRetentionDays: 7
+    deletionProtection: true
+
+    tags:
+      Team: platform
+      Project: myapp
+      CostCenter: "9001"
+
+  writeConnectionSecretToRef:
+    name: myapp-aurora-postgresql-conn

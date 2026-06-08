@@ -1,0 +1,131 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xsecuritygroups.devops.murali.io
+spec:
+  group: devops.murali.io
+  names:
+    kind: XSecurityGroup
+    plural: xsecuritygroups
+  claimNames:
+    kind: SecurityGroup
+    plural: securitygroups
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+
+                region:
+                  type: string
+                  description: AWS region to deploy security groups
+
+                vpcId:
+                  type: string
+                  description: VPC ID where security groups will be created
+
+                vpcCidr:
+                  type: string
+                  description: VPC CIDR block for Bastion SSH inbound rule
+
+                # ─────────────────────────────────────────
+                # SG 1 — BASTION / EC2
+                # ─────────────────────────────────────────
+                bastionSg:
+                  type: object
+                  description: Security Group for Bastion and EC2 instances
+                  properties:
+                    enabled:
+                      type: boolean
+                      description: Create Bastion SG or not
+                    name:
+                      type: string
+                      description: Name for the Bastion SG
+                  required:
+                    - enabled
+                    - name
+
+                # ─────────────────────────────────────────
+                # SG 2 — EKS
+                # ─────────────────────────────────────────
+                eksSg:
+                  type: object
+                  description: Security Group for EKS cluster communication
+                  properties:
+                    enabled:
+                      type: boolean
+                      description: Create EKS SG or not
+                    name:
+                      type: string
+                      description: Name for the EKS SG
+                    allowedCidr:
+                      type: string
+                      description: CIDR allowed for EKS API server port 443
+                  required:
+                    - enabled
+                    - name
+                    - allowedCidr
+
+                # ─────────────────────────────────────────
+                # SG 3 — DB (PostgreSQL)
+                # ─────────────────────────────────────────
+                dbSg:
+                  type: object
+                  description: Security Group for PostgreSQL DB communication
+                  properties:
+                    enabled:
+                      type: boolean
+                      description: Create DB SG or not
+                    name:
+                      type: string
+                      description: Name for the DB SG
+                    dbPort:
+                      type: integer
+                      description: Database port (default 5432 for PostgreSQL)
+                  required:
+                    - enabled
+                    - name
+                    - dbPort
+
+                # ─────────────────────────────────────────
+                # TAGS
+                # ─────────────────────────────────────────
+                environment:
+                  type: string
+                  description: Environment tag (dev, staging, prod)
+
+                owner:
+                  type: string
+                  description: Owner tag for resource identification
+
+              required:
+                - region
+                - vpcId
+                - vpcCidr
+                - bastionSg
+                - eksSg
+                - dbSg
+                - environment
+                - owner
+
+            # ─────────────────────────────────────────
+            # STATUS
+            # ─────────────────────────────────────────
+            status:
+              type: object
+              properties:
+                bastionSgId:
+                  type: string
+                  description: Created Bastion SG ID
+                eksSgId:
+                  type: string
+                  description: Created EKS SG ID
+                dbSgId:
+                  type: string
+                  description: Created DB SG ID

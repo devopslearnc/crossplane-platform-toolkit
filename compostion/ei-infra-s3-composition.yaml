@@ -1,0 +1,47 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: secure-environment-aws
+spec:
+  compositeTypeRef:
+    apiVersion: devops.murali.io/v1alpha1
+    kind: XSecureEnvironment
+
+  pipeline:
+    - step: loop-s3-buckets
+      functionRef:
+        name: function-go-templating
+      input:
+        apiVersion: templates.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |
+            apiVersion: devops.murali.io/v1alpha1
+            kind: XSecureEnvironment
+            metadata:
+              name: {{ .observed.composite.resource.metadata.name }}
+            spec:
+              bucketCount: {{ .observed.composite.resource.spec.bucketCount }}
+            
+            {{- $count := 5 }}
+            {{- if .observed.composite.resource.spec.bucketCount }}
+              {{- $count = .observed.composite.resource.spec.bucketCount | int }}
+            {{- end }}
+            
+            {{- range $i := until $count }}
+            {{- $bucketName := printf "murali-prod-data-bucket-%d" (add $i 1) }}
+            ---
+            apiVersion: s3.aws.upbound.io/v1beta1
+            kind: Bucket
+            metadata:
+              name: {{ $bucketName }}
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: {{ $bucketName }}
+                crossplane.io/external-name: {{ $bucketName }}
+            spec:
+              forProvider:
+                region: us-west-2
+              providerConfigRef:
+                name: default
+            {{- end }}

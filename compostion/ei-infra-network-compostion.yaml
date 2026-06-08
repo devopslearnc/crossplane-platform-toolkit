@@ -1,0 +1,141 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xnetworks.devops.murali.io
+  labels:
+    provider: aws
+spec:
+  compositeTypeRef:
+    apiVersion: devops.murali.io/v1alpha1
+    kind: XNetwork
+  mode: Pipeline
+  pipeline:
+    - step: generate-network-resources
+      functionRef:
+        name: function-go-templating
+      input:
+        apiVersion: template.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |-
+            {{- $composite := .observed.composite.resource.spec -}}
+            {{- $name := .observed.composite.resource.metadata.name -}}
+            {{- $region := $composite.region -}}
+            
+            # 1. VPC
+            apiVersion: ec2.aws.upbound.io/v1beta1
+            kind: VPC
+            metadata:
+              name: {{ $name }}-vpc
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: {{ $name }}-vpc
+            spec:
+              forProvider:
+                region: {{ $region }}
+                cidrBlock: {{ $composite.cidrBlock }}
+                tags: { Name: {{ $name }}-vpc }
+            ---
+            # 2. Internet Gateway
+            apiVersion: ec2.aws.upbound.io/v1beta1
+            kind: InternetGateway
+            metadata:
+              name: {{ $name }}-igw
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: {{ $name }}-igw
+            spec:
+              forProvider:
+                region: {{ $region }}
+                vpcIdSelector: { matchControllerRef: true }
+            ---
+            # 3. Subnets
+            {{- range $subnet := $composite.subnets }}
+            apiVersion: ec2.aws.upbound.io/v1beta1
+            kind: Subnet
+            metadata:
+              name: {{ $name }}-{{ $subnet.name }}
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: {{ $name }}-{{ $subnet.name }}
+              labels:
+                subnet-name: {{ $subnet.name }}
+            spec:
+              forProvider:
+                region: {{ $region }}
+                vpcIdSelector: { matchControllerRef: true }
+                cidrBlock: {{ $subnet.cidr }}
+                availabilityZone: {{ $subnet.az }}
+                mapPublicIpOnLaunch: {{ eq $subnet.type "public" }}
+            ---
+            {{- end }}
+            # 4. Public Route Table
+            apiVersion: ec2.aws.upbound.io/v1beta1
+            kind: RouteTable
+            metadata:
+              name: {{ $name }}-public-rt
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: {{ $name }}-public-rt
+              labels: { rt-type: public }
+            spec:
+              forProvider:
+                region: {{ $region }}
+                vpcIdSelector: { matchControllerRef: true }
+            ---
+            # 4a. Public Route
+            apiVersion: ec2.aws.upbound.io/v1beta1
+            kind: Route
+            metadata:
+              name: {{ $name }}-public-route
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: {{ $name }}-public-route
+            spec:
+              forProvider:
+                region: {{ $region }}
+                routeTableIdSelector: { matchLabels: { rt-type: public } }
+                destinationCidrBlock: 0.0.0.0/0
+                gatewayIdSelector: { matchControllerRef: true }
+            ---
+            # 5. Public Subnet Association
+            {{- range $subnet := $composite.subnets }}{{- if eq $subnet.type "public" }}
+            apiVersion: ec2.aws.upbound.io/v1beta1
+            kind: RouteTableAssociation
+            metadata:
+              name: {{ $name }}-rta-{{ $subnet.name }}
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: {{ $name }}-rta-{{ $subnet.name }}
+            spec:
+              forProvider:
+                region: {{ $region }}
+                routeTableIdSelector: { matchLabels: { rt-type: public } }
+                subnetIdSelector:
+                  matchLabels: { subnet-name: {{ $subnet.name }} }
+            ---
+            {{- end }}{{- end }}
+            # 6. Private Route Table
+            apiVersion: ec2.aws.upbound.io/v1beta1
+            kind: RouteTable
+            metadata:
+              name: {{ $name }}-private-rt
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: {{ $name }}-private-rt
+              labels: { rt-type: private }
+            spec:
+              forProvider:
+                region: {{ $region }}
+                vpcIdSelector: { matchControllerRef: true }
+            ---
+            # 7. Private Subnet Association
+            {{- range $subnet := $composite.subnets }}{{- if eq $subnet.type "private" }}
+            apiVersion: ec2.aws.upbound.io/v1beta1
+            kind: RouteTableAssociation
+            metadata:
+              name: {{ $name }}-rta-{{ $subnet.name }}
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: {{ $name }}-rta-{{ $subnet.name }}
+            spec:
+              forProvider:
+                region: {{ $region }}
+                routeTableIdSelector: { matchLabels: { rt-type: private } }
+                subnetIdSelector:
+                  matchLabels: { subnet-name: {{ $subnet.name }} }
+            ---
+            {{- end }}{{- end }}

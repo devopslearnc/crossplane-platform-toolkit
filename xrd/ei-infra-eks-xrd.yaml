@@ -1,0 +1,194 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xeksclusters.devops.murali.io
+spec:
+  group: devops.murali.io
+  names:
+    kind: XEKSCluster
+    plural: xeksclusters
+  claimNames:
+    kind: EKSCluster
+    plural: eksclusters
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+
+                region:
+                  type: string
+                  description: AWS region to deploy EKS cluster
+
+                clusterName:
+                  type: string
+                  description: Name of the EKS cluster
+
+                kubernetesVersion:
+                  type: string
+                  description: Kubernetes version (e.g. 1.31)
+
+                vpcId:
+                  type: string
+                  description: Existing VPC ID from Network claim
+
+                subnetIds:
+                  type: array
+                  description: List of subnet IDs for EKS cluster
+                  items:
+                    type: string
+
+                eksSgId:
+                  type: string
+                  description: Existing EKS Security Group ID from SG claim
+
+                nodeGroups:
+                  type: array
+                  description: List of node groups to create
+                  minItems: 1
+                  maxItems: 100
+                  items:
+                    type: object
+                    properties:
+
+                      name:
+                        type: string
+                        description: Unique name for the node group
+
+                      os:
+                        type: string
+                        enum:
+                          - linux
+                          - windows
+                        description: OS type linux or windows
+
+                      instanceType:
+                        type: string
+                        description: EC2 instance type (e.g. t3.medium, t3.large)
+
+                      amiType:
+                        type: string
+                        enum:
+                          - AL2_x86_64
+                          - AL2_x86_64_GPU
+                          - AL2_ARM_64
+                          - WINDOWS_CORE_2019_x86_64
+                          - WINDOWS_FULL_2019_x86_64
+                          - WINDOWS_CORE_2022_x86_64
+                          - WINDOWS_FULL_2022_x86_64
+                        description: AMI type for the node group
+
+                      desiredSize:
+                        type: integer
+                        description: Desired number of nodes
+
+                      minSize:
+                        type: integer
+                        description: Minimum number of nodes
+
+                      maxSize:
+                        type: integer
+                        description: Maximum number of nodes
+
+                      diskSize:
+                        type: integer
+                        description: Root volume disk size in GB (default 20)
+
+                      labels:
+                        type: object
+                        description: Kubernetes labels for nodes in this group
+                        additionalProperties:
+                          type: string
+
+                      taints:
+                        type: array
+                        description: Kubernetes taints for nodes in this group
+                        items:
+                          type: object
+                          properties:
+                            key:
+                              type: string
+                            value:
+                              type: string
+                            effect:
+                              type: string
+                              enum:
+                                - NO_SCHEDULE
+                                - NO_EXECUTE
+                                - PREFER_NO_SCHEDULE
+                          required:
+                            - key
+                            - effect
+
+                    required:
+                      - name
+                      - os
+                      - instanceType
+                      - amiType
+                      - desiredSize
+                      - minSize
+                      - maxSize
+
+                addons:
+                  type: object
+                  description: EKS Addons configuration
+                  properties:
+                    enableVpcCni:
+                      type: boolean
+                      description: Enable vpc-cni addon
+                    enableCoreDns:
+                      type: boolean
+                      description: Enable coredns addon
+                    enableKubeProxy:
+                      type: boolean
+                      description: Enable kube-proxy addon
+                    enableEbsCsiDriver:
+                      type: boolean
+                      description: Enable aws-ebs-csi-driver addon
+                  required:
+                    - enableVpcCni
+                    - enableCoreDns
+                    - enableKubeProxy
+                    - enableEbsCsiDriver
+
+                environment:
+                  type: string
+                  description: Environment tag (dev, staging, prod)
+
+                owner:
+                  type: string
+                  description: Owner tag for resource identification
+
+              required:
+                - region
+                - clusterName
+                - kubernetesVersion
+                - vpcId
+                - subnetIds
+                - eksSgId
+                - nodeGroups
+                - addons
+                - environment
+                - owner
+
+            status:
+              type: object
+              properties:
+                clusterEndpoint:
+                  type: string
+                  description: EKS cluster API endpoint
+                clusterArn:
+                  type: string
+                  description: EKS cluster ARN
+                clusterStatus:
+                  type: string
+                  description: EKS cluster status
+                oidcIssuer:
+                  type: string
+                  description: OIDC issuer URL for IRSA

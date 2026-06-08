@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: myapp-postgres-dev-db-master-password
+  namespace: crossplane-infra
+type: Opaque
+data:
+  password: WW91clBhc3N3b3JkMTIzIQ==
+
+---
+# MySQL password secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: myapp-mysql-dev-db-master-password
+  namespace: crossplane-system
+type: Opaque
+data:
+  password: WW91clBhc3N3b3JkMTIzIQ==

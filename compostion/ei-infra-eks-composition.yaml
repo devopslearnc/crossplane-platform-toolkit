@@ -1,0 +1,250 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xekscluster-aws
+  labels:
+    provider: aws
+spec:
+  compositeTypeRef:
+    apiVersion: devops.murali.io/v1alpha1
+    kind: XEKSCluster
+  pipeline:
+    - step: build-eks-cluster
+      functionRef:
+        name: function-go-templating
+      input:
+        apiVersion: templates.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |
+            {{- $xrName := .observed.composite.resource.metadata.name }}
+            {{- $spec   := .observed.composite.resource.spec }}
+
+            apiVersion: iam.aws.upbound.io/v1beta1
+            kind: Role
+            metadata:
+              name: {{ $xrName }}-cluster-role
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: cluster-role
+              labels: { role-type: cluster }
+            spec:
+              forProvider:
+                assumeRolePolicy: '{"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Service": "eks.amazonaws.com"}, "Action": "sts:AssumeRole"}]}'
+            ---
+            apiVersion: iam.aws.upbound.io/v1beta1
+            kind: RolePolicyAttachment
+            metadata:
+              name: {{ $xrName }}-cluster-policy
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: cluster-policy
+            spec:
+              forProvider:
+                policyArn: "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
+                roleSelector: { matchLabels: { role-type: cluster } }
+            ---
+            apiVersion: iam.aws.upbound.io/v1beta1
+            kind: Role
+            metadata:
+              name: {{ $xrName }}-linux-node-role
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: linux-node-role
+              labels: { role-type: linux-node }
+            spec:
+              forProvider:
+                assumeRolePolicy: '{"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Service": "ec2.amazonaws.com"}, "Action": "sts:AssumeRole"}]}'
+            ---
+            apiVersion: iam.aws.upbound.io/v1beta1
+            kind: RolePolicyAttachment
+            metadata:
+              name: {{ $xrName }}-linux-worker-policy
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: linux-worker-policy
+            spec:
+              forProvider:
+                policyArn: "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
+                roleSelector: { matchLabels: { role-type: linux-node } }
+            ---
+            apiVersion: iam.aws.upbound.io/v1beta1
+            kind: RolePolicyAttachment
+            metadata:
+              name: {{ $xrName }}-linux-cni-policy
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: linux-cni-policy
+            spec:
+              forProvider:
+                policyArn: "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+                roleSelector: { matchLabels: { role-type: linux-node } }
+            ---
+            apiVersion: iam.aws.upbound.io/v1beta1
+            kind: RolePolicyAttachment
+            metadata:
+              name: {{ $xrName }}-linux-ecr-policy
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: linux-ecr-policy
+            spec:
+              forProvider:
+                policyArn: "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+                roleSelector: { matchLabels: { role-type: linux-node } }
+            ---
+            apiVersion: iam.aws.upbound.io/v1beta1
+            kind: Role
+            metadata:
+              name: {{ $xrName }}-windows-node-role
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: windows-node-role
+              labels: { role-type: windows-node }
+            spec:
+              forProvider:
+                assumeRolePolicy: '{"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Service": "ec2.amazonaws.com"}, "Action": "sts:AssumeRole"}]}'
+            ---
+            apiVersion: iam.aws.upbound.io/v1beta1
+            kind: RolePolicyAttachment
+            metadata:
+              name: {{ $xrName }}-windows-worker-policy
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: windows-worker-policy
+            spec:
+              forProvider:
+                policyArn: "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
+                roleSelector: { matchLabels: { role-type: windows-node } }
+            ---
+            apiVersion: iam.aws.upbound.io/v1beta1
+            kind: RolePolicyAttachment
+            metadata:
+              name: {{ $xrName }}-windows-cni-policy
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: windows-cni-policy
+            spec:
+              forProvider:
+                policyArn: "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+                roleSelector: { matchLabels: { role-type: windows-node } }
+            ---
+            apiVersion: iam.aws.upbound.io/v1beta1
+            kind: RolePolicyAttachment
+            metadata:
+              name: {{ $xrName }}-windows-ecr-policy
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: windows-ecr-policy
+            spec:
+              forProvider:
+                policyArn: "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+                roleSelector: { matchLabels: { role-type: windows-node } }
+            ---
+            apiVersion: eks.aws.upbound.io/v1beta1
+            kind: Cluster
+            metadata:
+              name: {{ $xrName }}-cluster
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: eks-cluster
+              labels:
+                cluster: {{ $xrName }}
+            spec:
+              forProvider:
+                region: {{ $spec.region }}
+                version: {{ $spec.kubernetesVersion | quote }}
+                roleArnSelector: { matchLabels: { role-type: cluster } }
+                vpcConfig:
+                  - subnetIds: {{ $spec.subnetIds | toJson }}
+                    securityGroupIds: [{{ $spec.eksSgId }}]
+            ---
+            apiVersion: ec2.aws.upbound.io/v1beta1
+            kind: SecurityGroupRule
+            metadata:
+              name: {{ $xrName }}-node-to-cluster-ingress
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: node-to-cluster-ingress
+            spec:
+              forProvider:
+                region: {{ $spec.region }}
+                type: ingress
+                fromPort: 443
+                toPort: 443
+                protocol: tcp
+                securityGroupId: { name: {{ $spec.eksSgId }} }
+                sourceSecurityGroupId: { name: {{ $spec.eksSgId }} }
+            ---
+            {{- range $nodeGroup := $spec.nodeGroups }}
+            apiVersion: eks.aws.upbound.io/v1beta1
+            kind: NodeGroup
+            metadata:
+              name: {{ $xrName }}-{{ $nodeGroup.name }}
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: {{ $nodeGroup.name }}
+            spec:
+              forProvider:
+                region: {{ $spec.region }}
+                clusterNameSelector: 
+                  matchLabels:
+                    cluster: {{ $xrName }}
+                nodeRoleArnSelector: 
+                  matchLabels:
+                    role-type: {{ if eq $nodeGroup.os "windows" }}windows-node{{ else }}linux-node{{ end }}
+                subnetIds: {{ $spec.subnetIds | toJson }}
+                instanceTypes: [{{ $nodeGroup.instanceType }}]
+                amiType: {{ $nodeGroup.amiType }}
+                scalingConfig:
+                  - desiredSize: {{ $nodeGroup.desiredSize }}
+                    minSize: {{ $nodeGroup.minSize }}
+                    maxSize: {{ $nodeGroup.maxSize }}
+                labels: {{ $nodeGroup.labels | toJson }}
+            ---
+            {{- end }}
+            {{- if $spec.addons.enableVpcCni }}
+            apiVersion: eks.aws.upbound.io/v1beta1
+            kind: Addon
+            metadata:
+              name: {{ $xrName }}-vpc-cni
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: addon-vpc-cni
+            spec:
+              forProvider:
+                region: {{ $spec.region }}
+                addonName: vpc-cni
+                clusterNameSelector: { matchLabels: { cluster: {{ $xrName }} } }
+            {{- end }}
+            
+            {{- if $spec.addons.enableCoreDns }}
+            ---
+            apiVersion: eks.aws.upbound.io/v1beta1
+            kind: Addon
+            metadata:
+              name: {{ $xrName }}-coredns
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: addon-coredns
+            spec:
+              forProvider:
+                region: {{ $spec.region }}
+                addonName: coredns
+                clusterNameSelector: { matchLabels: { cluster: {{ $xrName }} } }
+            {{- end }}
+            
+            {{- if $spec.addons.enableKubeProxy }}
+            ---
+            apiVersion: eks.aws.upbound.io/v1beta1
+            kind: Addon
+            metadata:
+              name: {{ $xrName }}-kube-proxy
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: addon-kube-proxy
+            spec:
+              forProvider:
+                region: {{ $spec.region }}
+                addonName: kube-proxy
+                clusterNameSelector: { matchLabels: { cluster: {{ $xrName }} } }
+            {{- end }}
+            
+            {{- if $spec.addons.enableEbsCsiDriver }}
+            ---
+            apiVersion: eks.aws.upbound.io/v1beta1
+            kind: Addon
+            metadata:
+              name: {{ $xrName }}-ebs-csi-driver
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: addon-ebs-csi
+            spec:
+              forProvider:
+                region: {{ $spec.region }}
+                addonName: aws-ebs-csi-driver
+                clusterNameSelector: { matchLabels: { cluster: {{ $xrName }} } }
+            {{- end }}

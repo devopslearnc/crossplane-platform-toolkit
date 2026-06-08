@@ -1,0 +1,218 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xsecuritygroup-aws
+  labels:
+    provider: aws
+spec:
+  compositeTypeRef:
+    apiVersion: devops.murali.io/v1alpha1
+    kind: XSecurityGroup
+  pipeline:
+    - step: build-security-groups
+      functionRef:
+        name: function-go-templating
+      input:
+        apiVersion: templates.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |
+            {{- $xrName := .observed.composite.resource.metadata.name }}
+            {{- $spec   := .observed.composite.resource.spec }}
+
+            {{- if $spec.bastionSg.enabled }}
+            apiVersion: ec2.aws.upbound.io/v1beta1
+            kind: SecurityGroup
+            metadata:
+              name: {{ $xrName }}-bastion-sg
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: bastion-sg
+            spec:
+              forProvider:
+                region: {{ $spec.region }}
+                name: {{ $spec.bastionSg.name }}
+                description: "Security group for Bastion"
+                vpcId: {{ $spec.vpcId }}
+                tags:
+                  Name: {{ $spec.bastionSg.name }}
+                  Type: bastion
+            ---
+            apiVersion: ec2.aws.upbound.io/v1beta1
+            kind: SecurityGroupRule
+            metadata:
+              name: {{ $xrName }}-bastion-ssh-inbound
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: bastion-ssh-inbound
+            spec:
+              forProvider:
+                region: {{ $spec.region }}
+                type: ingress
+                fromPort: 22
+                toPort: 22
+                protocol: tcp
+                cidrBlocks:
+                  - {{ $spec.vpcCidr }}
+                securityGroupIdSelector:
+                  matchControllerRef: true
+            ---
+            apiVersion: ec2.aws.upbound.io/v1beta1
+            kind: SecurityGroupRule
+            metadata:
+              name: {{ $xrName }}-bastion-outbound
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: bastion-outbound
+            spec:
+              forProvider:
+                region: {{ $spec.region }}
+                type: egress
+                fromPort: 0
+                toPort: 0
+                protocol: "-1"
+                cidrBlocks:
+                  - "0.0.0.0/0"
+                securityGroupIdSelector:
+                  matchControllerRef: true
+            {{- end }}
+            ---
+            {{- if $spec.eksSg.enabled }}
+            apiVersion: ec2.aws.upbound.io/v1beta1
+            kind: SecurityGroup
+            metadata:
+              name: {{ $xrName }}-eks-sg
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: eks-sg
+            spec:
+              forProvider:
+                region: {{ $spec.region }}
+                name: {{ $spec.eksSg.name }}
+                description: "Security group for EKS"
+                vpcId: {{ $spec.vpcId }}
+                tags:
+                  Name: {{ $spec.eksSg.name }}
+                  Type: eks
+            ---
+            apiVersion: ec2.aws.upbound.io/v1beta1
+            kind: SecurityGroupRule
+            metadata:
+              name: {{ $xrName }}-eks-443-inbound
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: eks-443-inbound
+            spec:
+              forProvider:
+                region: {{ $spec.region }}
+                type: ingress
+                fromPort: 443
+                toPort: 443
+                protocol: tcp
+                cidrBlocks:
+                  - {{ $spec.eksSg.allowedCidr }}
+                securityGroupIdSelector:
+                  matchControllerRef: true
+            ---
+            apiVersion: ec2.aws.upbound.io/v1beta1
+            kind: SecurityGroupRule
+            metadata:
+              name: {{ $xrName }}-eks-10250-inbound
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: eks-10250-inbound
+            spec:
+              forProvider:
+                region: {{ $spec.region }}
+                type: ingress
+                fromPort: 10250
+                toPort: 10250
+                protocol: tcp
+                cidrBlocks:
+                  - {{ $spec.eksSg.allowedCidr }}
+                securityGroupIdSelector:
+                  matchControllerRef: true
+            ---
+            apiVersion: ec2.aws.upbound.io/v1beta1
+            kind: SecurityGroupRule
+            metadata:
+              name: {{ $xrName }}-eks-nodeport-inbound
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: eks-nodeport-inbound
+            spec:
+              forProvider:
+                region: {{ $spec.region }}
+                type: ingress
+                fromPort: 30000
+                toPort: 32767
+                protocol: tcp
+                cidrBlocks:
+                  - {{ $spec.eksSg.allowedCidr }}
+                securityGroupIdSelector:
+                  matchControllerRef: true
+            ---
+            apiVersion: ec2.aws.upbound.io/v1beta1
+            kind: SecurityGroupRule
+            metadata:
+              name: {{ $xrName }}-eks-outbound
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: eks-outbound
+            spec:
+              forProvider:
+                region: {{ $spec.region }}
+                type: egress
+                fromPort: 0
+                toPort: 0
+                protocol: "-1"
+                cidrBlocks:
+                  - "0.0.0.0/0"
+                securityGroupIdSelector:
+                  matchControllerRef: true
+            {{- end }}
+            ---
+            {{- if $spec.dbSg.enabled }}
+            apiVersion: ec2.aws.upbound.io/v1beta1
+            kind: SecurityGroup
+            metadata:
+              name: {{ $xrName }}-db-sg
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: db-sg
+            spec:
+              forProvider:
+                region: {{ $spec.region }}
+                name: {{ $spec.dbSg.name }}
+                description: "Security group for DB"
+                vpcId: {{ $spec.vpcId }}
+                tags:
+                  Name: {{ $spec.dbSg.name }}
+                  Type: db
+            ---
+            apiVersion: ec2.aws.upbound.io/v1beta1
+            kind: SecurityGroupRule
+            metadata:
+              name: {{ $xrName }}-db-inbound
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: db-inbound
+            spec:
+              forProvider:
+                region: {{ $spec.region }}
+                type: ingress
+                fromPort: {{ $spec.dbSg.dbPort }}
+                toPort: {{ $spec.dbSg.dbPort }}
+                protocol: tcp
+                securityGroupIdSelector:
+                  matchControllerRef: true
+            ---
+            apiVersion: ec2.aws.upbound.io/v1beta1
+            kind: SecurityGroupRule
+            metadata:
+              name: {{ $xrName }}-db-outbound
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: db-outbound
+            spec:
+              forProvider:
+                region: {{ $spec.region }}
+                type: egress
+                fromPort: 0
+                toPort: 0
+                protocol: "-1"
+                cidrBlocks:
+                  - "0.0.0.0/0"
+                securityGroupIdSelector:
+                  matchControllerRef: true
+            {{- end }}

@@ -1,0 +1,40 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xbastionhosts.devops.murali.io
+spec:
+  group: devops.murali.io
+  names:
+    kind: XBastionHost
+    plural: xbastionhosts
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                vpcId:
+                  type: string
+                subnetId:
+                  type: string
+                securityGroupId:
+                  type: string
+                keyName:
+                  type: string
+                region:
+                  type: string
+                instanceType:
+                  type: string
+                amiId:
+                  type: string
+              required:
+                - vpcId
+                - subnetId
+                - securityGroupId
+                - amiId
+                - keyName

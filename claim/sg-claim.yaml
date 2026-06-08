@@ -1,0 +1,26 @@
+apiVersion: devops.murali.io/v1alpha1
+kind: SecurityGroup
+metadata:
+  name: ei-pfe-dev-sg
+  namespace: crossplane-infra
+spec:
+  region: "us-east-1"
+  vpcId: "vpc-04aff5db3399ed8cb"
+  vpcCidr: "10.0.0.0/16"
+
+  bastionSg:
+    enabled: true
+    name: "ei-pfe-dev-bastion-sg"
+
+  eksSg:
+    enabled: true
+    name: "ei-pfe-dev-eks-sg"
+    allowedCidr: "10.0.0.0/16"
+
+  dbSg:
+    enabled: true
+    name: "ei-pfe-dev-db-sg"
+    dbPort: 5432
+
+  environment: "dev"
+  owner: "murali"

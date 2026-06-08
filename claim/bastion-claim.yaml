@@ -1,0 +1,13 @@
+apiVersion: devops.murali.io/v1alpha1
+kind: XBastionHost
+metadata:
+  name: ei-pfe-dev-bastion
+  namespace: crossplane-infra
+spec:
+  vpcId: "vpc-04aff5db3399ed8cb"
+  subnetId: "subnet-0a7f9a9c2c29593bc"
+  securityGroupId: "sg-0149aa3f9476d9b86"
+  keyName: "ei-pfe"
+  amiId: "ami-0cff7528ff583bf9a"
+  region: "us-east-1"
+  instanceType: "t3.micro"

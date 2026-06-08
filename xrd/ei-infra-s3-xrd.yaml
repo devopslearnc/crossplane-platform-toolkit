@@ -1,0 +1,29 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xsecureenvironments.devops.murali.io
+spec:
+  group: devops.murali.io
+  names:
+    kind: XSecureEnvironment
+    plural: xsecureenvironments
+  claimNames:
+    kind: SecureEnvironment
+    plural: secureenvironments
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                bucketCount:
+                  type: integer
+                  default: 15
+                  description: Number of secure S3 buckets to provision via loop logic
+              required:
+                - bucketCount

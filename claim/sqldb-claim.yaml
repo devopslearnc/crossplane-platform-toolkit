@@ -1,0 +1,40 @@
+apiVersion: devops.murali.io/v1alpha1
+kind: RDSInstance
+metadata:
+  name: myapp-mysql
+  namespace: dev-team
+spec:
+  parameters:
+    engine: mysql
+    engineVersion: "8.0.35"
+    instanceClass: db.t3.micro
+    region: us-east-1
+
+    storageType: gp2
+    allocatedStorage: 20
+    storageEncrypted: false
+
+    deploymentOption: single-az
+    availabilityZone: us-east-1a
+
+    masterUsername: mysqladmin
+    dbName: appdb
+
+    dbSubnetGroupName: my-existing-db-subnet-group
+    vpcSecurityGroupIds:
+      - sg-0abc123456789aaaa                         # existing DB security group
+
+    publiclyAccessible: false
+
+    backupRetentionDays: 7
+    skipFinalSnapshot: true       # set false for staging/prod
+    deletionProtection: false     # set true for staging/prod
+
+    environment: dev
+    tags:
+      Team: platform
+      Project: myapp
+      CostCenter: "9001"
+
+  writeConnectionSecretToRef:
+    name: myapp-mysql-conn

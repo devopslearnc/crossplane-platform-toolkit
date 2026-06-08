@@ -1,0 +1,41 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xbastionhosts.devops.murali.io
+spec:
+  compositeTypeRef:
+    apiVersion: devops.murali.io/v1alpha1
+    kind: XBastionHost
+  mode: Pipeline
+  pipeline:
+    - step: generate-bastion
+      functionRef:
+        name: function-go-templating
+      input:
+        apiVersion: template.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |-
+            {{- $composite := .observed.composite.resource.spec -}}
+            {{- $name := .observed.composite.resource.metadata.name -}}
+            
+            # Bastion Host Instance
+            apiVersion: ec2.aws.upbound.io/v1beta1
+            kind: Instance
+            metadata:
+              name: {{ $name }}-bastion
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: {{ $name }}-bastion
+            spec:
+              forProvider:
+                region: {{ $composite.region | default "us-east-1" }}
+                instanceType: {{ $composite.instanceType | default "t3.micro" }}
+                ami: {{ $composite.amiId }}
+                subnetId: {{ $composite.subnetId }}
+                keyName: {{ $composite.keyName }}
+                iamInstanceProfile: "ei-pfe-admin" 
+                vpcSecurityGroupIds:
+                  - {{ $composite.securityGroupId }}
+                tags:
+                  Name: {{ $name }}-bastion

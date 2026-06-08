@@ -1,0 +1,57 @@
+apiVersion: devops.murali.io/v1alpha1
+kind: EKSCluster
+metadata:
+  name: ei-pfe-nch-cluster
+  namespace: crossplane-infra
+spec:
+  region: "us-east-1"
+  clusterName: "ei-pfe-nch"
+  kubernetesVersion: "1.31"
+
+  vpcId: "vpc-04aff5db3399ed8cb"
+  subnetIds:
+    - "subnet-0eb5291723204e4ff"
+    - "subnet-0a7f9a9c2c29593bc"
+  eksSgId: "sg-0c2de09569e480592"
+
+  nodeGroups:
+    - name: "linux-app-nodes"
+      os: "linux"
+      instanceType: "t3.medium"
+      amiType: "AL2_x86_64"
+      desiredSize: 2
+      minSize: 1
+      maxSize: 3
+      diskSize: 20
+      labels:
+        role: "linux-app"
+    - name: "linux-db-nodes-nch"
+      os: "linux"
+      instanceType: "t3.medium"
+      amiType: "AL2_x86_64"
+      desiredSize: 1
+      minSize: 1
+      maxSize: 3
+      diskSize: 20
+      labels:
+        role: "linux-app"
+
+    - name: "windows-nodes"
+      os: "windows"
+      instanceType: "t3.large"
+      amiType: "WINDOWS_CORE_2022_x86_64"
+      desiredSize: 1
+      minSize: 1
+      maxSize: 2
+      diskSize: 50
+      labels:
+        role: "windows"
+
+  addons:
+    enableVpcCni: true
+    enableCoreDns: true
+    enableKubeProxy: true
+    enableEbsCsiDriver: true
+
+  environment: "dev"
+  owner: "murali"

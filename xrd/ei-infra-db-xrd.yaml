@@ -1,0 +1,133 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xrdsinstances.devops.murali.io
+spec:
+  group: devops.murali.io
+  names:
+    kind: XRDSInstance
+    plural: xrdsinstances
+  claimNames:
+    kind: RDSInstance
+    plural: rdsinstances
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required:
+                - parameters
+              properties:
+                parameters:
+                  type: object
+                  required:
+                    - engine
+                    - masterUsername
+                    - dbName
+                    - subnetIds
+                    - vpcSecurityGroupIds
+                    - environment
+                  properties:
+                    engine:
+                      type: string
+                      enum:
+                        - postgresql
+                        - mysql
+                    engineVersion:
+                      type: string
+                      default: ""
+                    instanceClass:
+                      type: string
+                      enum:
+                        - db.t3.micro
+                        - db.t4g.micro
+                        - db.t3.small
+                        - db.t3.medium
+                        - db.t4g.small
+                        - db.t4g.medium
+                      default: db.t3.micro
+                    storageType:
+                      type: string
+                      enum:
+                        - gp2
+                        - gp3
+                      default: gp2
+                    allocatedStorage:
+                      type: integer
+                      minimum: 20
+                      maximum: 1000
+                      default: 20
+                    deploymentOption:
+                      type: string
+                      enum:
+                        - single-az
+                        - multi-az
+                      default: single-az
+                    masterUsername:
+                      type: string
+                    dbName:
+                      type: string
+                    subnetIds:
+                      type: array
+                      description: "List of subnet IDs for the database"
+                      minItems: 1
+                      items:
+                        type: string
+                    vpcSecurityGroupIds:
+                      type: array
+                      description: "List of Security Group IDs"
+                      minItems: 1
+                      items:
+                        type: string
+                    availabilityZone:
+                      type: string
+                      default: ""
+                    region:
+                      type: string
+                      default: us-east-1
+                    publiclyAccessible:
+                      type: boolean
+                      default: false
+                    backupRetentionDays:
+                      type: integer
+                      minimum: 0
+                      maximum: 35
+                      default: 7
+                    deletionProtection:
+                      type: boolean
+                      default: false
+                    skipFinalSnapshot:
+                      type: boolean
+                      default: true
+                    storageEncrypted:
+                      type: boolean
+                      default: false
+                    environment:
+                      type: string
+                      enum:
+                        - dev
+                        - staging
+                        - prod
+                    tags:
+                      type: object
+                      additionalProperties:
+                        type: string
+                      default: {}
+            status:
+              type: object
+              properties:
+                dbInstanceIdentifier:
+                  type: string
+                dbInstanceEndpoint:
+                  type: string
+                port:
+                  type: integer
+                engine:
+                  type: string
+                deploymentMode:
+                  type: string

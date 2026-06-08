@@ -1,0 +1,31 @@
+apiVersion: devops.murali.io/v1alpha1
+kind: Network
+metadata:
+  name: ei-pfe-dev
+  namespace: crossplane-infra
+spec:
+  compositionSelector:
+    matchLabels:
+      provider: aws
+  region: us-east-1
+  cidrBlock: 10.0.0.0/16
+  subnets:
+    - name: public-subnet-1
+      cidr: 10.0.20.0/24
+      az: us-east-1a
+      type: public
+    - name: public-subnet-2
+      type: public
+      cidr: 10.0.21.0/24
+      az: us-east-1b
+    - name: private-subnet-1
+      cidr: 10.0.30.0/24
+      az: us-east-1b
+      type: private
+    - name: private-subnet-2
+      type: private
+      cidr: 10.0.40.0/24
+      az: us-east-1b
+  enableNatGateway: false
+  environment: dev
+  owner: murali
